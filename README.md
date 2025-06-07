@@ -1,7 +1,7 @@
 # Document Research & Theme Identification Chatbot
 An advanced AI-powered document research system that processes multiple document types, extracts precise answers, and identifies cross-document themes for the Wasserstoff AI internship task.
 
-Github Link : [https://github.com/shamee12312/Document-Research-Chatbot-Website]
+Github Link : [https://github.com/shamee12312/shamee-k-sharma-wasserstoff-AiInternTask]
 ##
 Site Link :[https://wasserstoff-intelligence-shamee12312.replit.app/]
 ##
