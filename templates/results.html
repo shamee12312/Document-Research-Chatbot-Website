@@ -1,0 +1,393 @@
+{% extends "base.html" %}
+
+{% block title %}Query Results - Document Research Chatbot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h2><i class="fas fa-search-plus me-2"></i>Query Results</h2>
+                <p class="text-muted mb-0">
+                    Results for: <em>"{{ query.question }}"</em>
+                </p>
+                <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {{ query.created_at.strftime('%Y-%m-%d %H:%M') }}
+                    {% if query.processing_time %}
+                        • Processing time: {{ "%.2f"|format(query.processing_time) }}s
+                    {% endif %}
+                </small>
+            </div>
+            <div>
+                <a href="{{ url_for('query_documents') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> New Query
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-primary">{{ individual_answers|length }}</h4>
+                <p class="mb-0">Individual Answers</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-success">{{ themes|length }}</h4>
+                <p class="mb-0">Identified Themes</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-info">{{ unique_document_count }}</h4>
+                <p class="mb-0">Documents Referenced</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Theme Synthesis (Main Results) -->
+{% if themes %}
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-project-diagram me-2"></i>
+                    Theme Synthesis
+                </h5>
+                <small>AI-identified patterns and insights across all documents</small>
+            </div>
+            <div class="card-body">
+                {% for theme in themes %}
+                <div class="theme-section mb-4">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <h5 class="text-success mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            Theme {{ loop.index }}: {{ theme.title }}
+                        </h5>
+                        <span class="badge bg-success">
+                            {{ "%.0f"|format(theme.confidence * 100) }}% confidence
+                        </span>
+                    </div>
+                    
+                    <div class="alert alert-light border-start border-success border-4">
+                        <p class="mb-3">{{ theme.summary }}</p>
+                        
+                        <div class="supporting-docs">
+                            <h6 class="text-muted mb-2">
+                                <i class="fas fa-file-alt me-1"></i>
+                                Supporting Documents:
+                            </h6>
+                            <div class="row">
+                                {% for doc in theme.supporting_documents %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="d-flex align-items-center">
+                                        <span class="badge bg-secondary me-2">{{ doc.document_key }}</span>
+                                        <small class="text-truncate">{{ doc.filename }}</small>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% if not loop.last %}
+                    <hr>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            No common themes were identified across the documents for this query.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Individual Document Answers -->
+{% if individual_answers %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list me-2"></i>
+                        Individual Document Answers
+                    </h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="sortAnswers('confidence')">
+                            Sort by Confidence
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="sortAnswers('document')">
+                            Sort by Document
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0" id="answersTable">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 120px;">Document ID</th>
+                                <th>Extracted Answer</th>
+                                <th style="width: 150px;">Citation</th>
+                                <th style="width: 100px;">Confidence</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for answer in individual_answers %}
+                            <tr class="answer-row" 
+                                data-confidence="{{ answer.confidence }}" 
+                                data-document="{{ answer.document_filename }}">
+                                <td>
+                                    <div class="fw-semibold text-primary">
+                                        DOC{{ "%03d"|format(answer.document_id) }}
+                                    </div>
+                                    <small class="text-muted text-truncate d-block" style="max-width: 100px;">
+                                        {{ answer.document_filename }}
+                                    </small>
+                                </td>
+                                <td>
+                                    <div class="answer-content">
+                                        {{ answer.answer }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="citation-info">
+                                        <div class="fw-semibold">{{ answer.citation }}</div>
+                                        <div class="similarity-score">
+                                            <small class="text-muted">
+                                                Similarity: {{ "%.0f"|format(answer.similarity_score * 100) }}%
+                                            </small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="confidence-indicator">
+                                        <div class="progress mb-1" style="height: 8px;">
+                                            <div class="progress-bar 
+                                                        bg-{{ 'success' if answer.confidence >= 0.8 
+                                                             else 'warning' if answer.confidence >= 0.6 
+                                                             else 'danger' }}" 
+                                                 style="width: {{ (answer.confidence * 100)|round }}%">
+                                            </div>
+                                        </div>
+                                        <small class="text-muted">
+                                            {{ "%.0f"|format(answer.confidence * 100) }}%
+                                        </small>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            No specific answers were found in the documents for this query.
+            Try rephrasing your question or using different keywords.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Follow-up Actions -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="fas fa-arrow-right me-2"></i>
+                    Next Steps
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Refine Your Search</h6>
+                        <p class="text-muted small mb-2">
+                            Try these related questions to explore further:
+                        </p>
+                        <div class="suggested-questions">
+                            {% if themes %}
+                                {% for theme in themes %}
+                                <button class="btn btn-outline-info btn-sm mb-2 d-block text-start" 
+                                        onclick="askQuestion('Tell me more about {{ theme.title|lower }}')">
+                                    "Tell me more about {{ theme.title|lower }}"
+                                </button>
+                                {% endfor %}
+                            {% endif %}
+                            <button class="btn btn-outline-info btn-sm mb-2 d-block text-start" 
+                                    onclick="askQuestion('What are the implications of {{ query.question|lower }}?')">
+                                "What are the implications of this?"
+                            </button>
+                            <button class="btn btn-outline-info btn-sm mb-2 d-block text-start" 
+                                    onclick="askQuestion('What other documents discuss similar topics?')">
+                                "What other documents discuss similar topics?"
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Export Results</h6>
+                        <p class="text-muted small mb-2">
+                            Save or share your findings:
+                        </p>
+                        <div class="btn-group-vertical d-grid gap-2">
+                            <button class="btn btn-outline-secondary btn-sm" onclick="exportResults('json')">
+                                <i class="fas fa-download me-1"></i>
+                                Export as JSON
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="copyResults()">
+                                <i class="fas fa-copy me-1"></i>
+                                Copy to Clipboard
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" onclick="printResults()">
+                                <i class="fas fa-print me-1"></i>
+                                Print Results
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Sort answers table
+function sortAnswers(sortBy) {
+    const tbody = document.querySelector('#answersTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('.answer-row'));
+    
+    rows.sort((a, b) => {
+        if (sortBy === 'confidence') {
+            const aConf = parseFloat(a.getAttribute('data-confidence'));
+            const bConf = parseFloat(b.getAttribute('data-confidence'));
+            return bConf - aConf; // Descending
+        } else if (sortBy === 'document') {
+            const aDoc = a.getAttribute('data-document');
+            const bDoc = b.getAttribute('data-document');
+            return aDoc.localeCompare(bDoc); // Ascending
+        }
+        return 0;
+    });
+    
+    // Re-append sorted rows
+    rows.forEach(row => tbody.appendChild(row));
+}
+
+// Ask new question
+function askQuestion(question) {
+    const url = new URL('{{ url_for("query_documents") }}', window.location.origin);
+    url.searchParams.set('q', question);
+    window.location.href = url.toString();
+}
+
+// Export results
+function exportResults(format) {
+    const results = {
+        query: "{{ query.question }}",
+        timestamp: "{{ query.created_at.isoformat() }}",
+        processing_time: {{ query.processing_time or 0 }},
+        themes: {{ themes|tojson }},
+        individual_answers: {{ individual_answers|tojson }}
+    };
+    
+    if (format === 'json') {
+        const blob = new Blob([JSON.stringify(results, null, 2)], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `query_results_{{ query.id }}.json`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+}
+
+// Copy results to clipboard
+function copyResults() {
+    let text = `Query: {{ query.question }}\n\n`;
+    
+    {% if themes %}
+    text += 'THEMES:\n';
+    {% for theme in themes %}
+    text += `\n{{ loop.index }}. {{ theme.title }}\n`;
+    text += `{{ theme.summary }}\n`;
+    text += 'Supporting Documents: ';
+    {% for doc in theme.supporting_documents %}
+    text += '{{ doc.document_key }}{% if not loop.last %}, {% endif %}';
+    {% endfor %}
+    text += '\n';
+    {% endfor %}
+    {% endif %}
+    
+    {% if individual_answers %}
+    text += '\nINDIVIDUAL ANSWERS:\n';
+    {% for answer in individual_answers %}
+    text += `\nDOC{{ "%03d"|format(answer.document_id) }}: {{ answer.answer }}\n`;
+    text += `Citation: {{ answer.citation }}\n`;
+    {% endfor %}
+    {% endif %}
+    
+    navigator.clipboard.writeText(text).then(() => {
+        alert('Results copied to clipboard!');
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy results to clipboard.');
+    });
+}
+
+// Print results
+function printResults() {
+    window.print();
+}
+
+// Highlight search terms in answers (if coming from a specific search)
+document.addEventListener('DOMContentLoaded', function() {
+    // You could implement search term highlighting here
+    // For now, just add some visual polish
+    
+    // Animate confidence bars
+    const progressBars = document.querySelectorAll('.progress-bar');
+    progressBars.forEach(bar => {
+        const width = bar.style.width;
+        bar.style.width = '0%';
+        setTimeout(() => {
+            bar.style.transition = 'width 0.8s ease-in-out';
+            bar.style.width = width;
+        }, 100);
+    });
+});
+</script>
+{% endblock %}

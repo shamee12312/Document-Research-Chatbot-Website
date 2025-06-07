@@ -1,0 +1,314 @@
+{% extends "base.html" %}
+
+{% block title %}Query Documents - Document Research Chatbot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-search me-2"></i>Query Documents</h2>
+        <p class="text-muted">
+            Ask questions about your documents and get precise answers with citations and theme identification.
+        </p>
+    </div>
+</div>
+
+<!-- Status Check -->
+{% if processed_docs_count == 0 %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>No processed documents available.</strong>
+            Please <a href="{{ url_for('upload_documents') }}" class="alert-link">upload documents</a> first and wait for processing to complete.
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Query Form -->
+<div class="row mb-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Ask a Question</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" id="queryForm">
+                    <div class="mb-3">
+                        <label for="question" class="form-label">Your Question</label>
+                        <textarea class="form-control" 
+                                  id="question" 
+                                  name="question" 
+                                  rows="4" 
+                                  placeholder="Enter your question about the uploaded documents..."
+                                  required
+                                  {% if processed_docs_count == 0 %}disabled{% endif %}></textarea>
+                        <div class="form-text">
+                            Be specific and clear in your question for better results. 
+                            The system will search across all uploaded documents.
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-secondary me-md-2" onclick="clearQuestion()">
+                            <i class="fas fa-times me-1"></i> Clear
+                        </button>
+                        <button type="submit" 
+                                class="btn btn-primary" 
+                                id="queryBtn"
+                                {% if processed_docs_count == 0 %}disabled{% endif %}>
+                            <i class="fas fa-search me-1"></i> Search Documents
+                        </button>
+                    </div>
+                </form>
+                
+                <!-- Query Progress -->
+                <div id="queryProgress" class="mt-3" style="display: none;">
+                    <div class="progress">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" 
+                             style="width: 0%" 
+                             id="progressBar">
+                            0%
+                        </div>
+                    </div>
+                    <small class="text-muted mt-2 d-block" id="progressText">Analyzing your question...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Query Guidelines -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-lightbulb me-2"></i>Query Tips</h6>
+            </div>
+            <div class="card-body">
+                <ul class="list-unstyled">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Ask specific, focused questions
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Use keywords from your documents
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Questions can be comparative
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        Ask about trends or patterns
+                    </li>
+                </ul>
+                
+                <hr>
+                
+                <h6>Example Questions</h6>
+                <div class="example-questions">
+                    <button class="btn btn-outline-info btn-sm mb-2 d-block w-100 text-start" 
+                            onclick="setQuestion('What are the main regulatory violations mentioned?')">
+                        "What are the main regulatory violations mentioned?"
+                    </button>
+                    <button class="btn btn-outline-info btn-sm mb-2 d-block w-100 text-start" 
+                            onclick="setQuestion('What penalties were imposed and why?')">
+                        "What penalties were imposed and why?"
+                    </button>
+                    <button class="btn btn-outline-info btn-sm mb-2 d-block w-100 text-start" 
+                            onclick="setQuestion('What are the common themes across these documents?')">
+                        "What are the common themes across these documents?"
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Status -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="fas fa-database me-2"></i>System Status</h6>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-6">
+                        <h5 class="mb-0 text-primary">{{ processed_docs_count }}</h5>
+                        <small class="text-muted">Ready</small>
+                    </div>
+                    <div class="col-6">
+                        <h5 class="mb-0 text-info" id="vectorCount">-</h5>
+                        <small class="text-muted">Vectors</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Queries -->
+{% if recent_queries %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="fas fa-history me-2"></i>Recent Queries</h5>
+            </div>
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    {% for query in recent_queries %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1">{{ query.question }}</h6>
+                                <small class="text-muted">
+                                    <i class="fas fa-clock me-1"></i>
+                                    {{ query.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% if query.processing_time %}
+                                        • {{ "%.2f"|format(query.processing_time) }}s
+                                    {% endif %}
+                                </small>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('query_results', query_id=query.id) }}" 
+                                   class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-eye me-1"></i> View Results
+                                </a>
+                                <button class="btn btn-outline-secondary btn-sm" 
+                                        onclick="setQuestion('{{ query.question|replace("'", "\\'") }}')">
+                                    <i class="fas fa-redo me-1"></i> Re-ask
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const questionTextarea = document.getElementById('question');
+const queryForm = document.getElementById('queryForm');
+const queryBtn = document.getElementById('queryBtn');
+const queryProgress = document.getElementById('queryProgress');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+
+// Set question from examples or recent queries
+function setQuestion(question) {
+    questionTextarea.value = question;
+    questionTextarea.focus();
+}
+
+// Clear question
+function clearQuestion() {
+    questionTextarea.value = '';
+    questionTextarea.focus();
+}
+
+// Handle form submission
+queryForm.addEventListener('submit', function(event) {
+    event.preventDefault();
+    
+    const question = questionTextarea.value.trim();
+    if (!question) {
+        alert('Please enter a question.');
+        return;
+    }
+    
+    // Show progress
+    queryProgress.style.display = 'block';
+    queryBtn.disabled = true;
+    
+    // Simulate progress
+    let progress = 0;
+    const stages = [
+        'Analyzing your question...',
+        'Searching through documents...',
+        'Extracting relevant answers...',
+        'Identifying common themes...',
+        'Generating citations...',
+        'Preparing results...'
+    ];
+    let stageIndex = 0;
+    
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        
+        progressBar.style.width = progress + '%';
+        progressBar.textContent = Math.round(progress) + '%';
+        
+        // Update stage text
+        const stageProgress = Math.floor((progress / 90) * stages.length);
+        if (stageProgress < stages.length && stageProgress !== stageIndex) {
+            stageIndex = stageProgress;
+            progressText.textContent = stages[stageIndex];
+        }
+    }, 300);
+    
+    // Submit form
+    const formData = new FormData(queryForm);
+    
+    fetch(queryForm.action || window.location.href, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        clearInterval(interval);
+        progressBar.style.width = '100%';
+        progressBar.textContent = '100%';
+        progressText.textContent = 'Query complete!';
+        
+        if (response.ok) {
+            // If successful, the server should redirect to results
+            return response.text().then(html => {
+                if (response.redirected || html.includes('results')) {
+                    window.location.href = response.url || '/query';
+                } else {
+                    // Parse response for redirect URL
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const redirect = doc.querySelector('meta[http-equiv="refresh"]');
+                    if (redirect) {
+                        const url = redirect.getAttribute('content').split('url=')[1];
+                        window.location.href = url;
+                    } else {
+                        throw new Error('Unexpected response format');
+                    }
+                }
+            });
+        } else {
+            throw new Error(`Server error: ${response.status}`);
+        }
+    })
+    .catch(error => {
+        console.error('Query error:', error);
+        clearInterval(interval);
+        queryProgress.style.display = 'none';
+        queryBtn.disabled = false;
+        alert('Query failed: ' + error.message);
+    });
+});
+
+// Auto-resize textarea
+questionTextarea.addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+});
+
+// Load vector count
+function updateVectorCount() {
+    // This would call an API to get vector store stats
+    // For now, show a placeholder
+    document.getElementById('vectorCount').textContent = '~' + ({{ processed_docs_count }} * 10);
+}
+
+updateVectorCount();
+</script>
+{% endblock %}

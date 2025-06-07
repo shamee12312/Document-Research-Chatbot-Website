@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Document Research Chatbot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <!-- Hero Section -->
+        <div class="bg-dark rounded p-5 mb-4">
+            <div class="text-center">
+                <i class="fas fa-robot display-1 text-primary mb-3"></i>
+                <h1 class="display-4 fw-bold">Document Research Chatbot</h1>
+                <p class="lead">
+                    Upload documents, ask questions, and discover insights with AI-powered analysis
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configuration Errors -->
+{% if config_errors %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <h5><i class="fas fa-exclamation-triangle me-2"></i>Configuration Required</h5>
+            <p>Please configure the following to use the chatbot:</p>
+            <ul class="mb-0">
+                {% for error in config_errors %}
+                    <li>{{ error }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- System Statistics -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ total_documents }}</h4>
+                        <p class="mb-0">Total Documents</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-file-alt fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ processed_documents }}</h4>
+                        <p class="mb-0">Processed</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-check-circle fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-info text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0">{{ total_queries }}</h4>
+                        <p class="mb-0">Queries Made</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-search fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card bg-secondary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h4 class="mb-0" id="processing-count">-</h4>
+                        <p class="mb-0">Processing</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="fas fa-cog fa-spin fa-2x"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <h3><i class="fas fa-bolt me-2"></i>Quick Actions</h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-upload fa-3x text-primary mb-3"></i>
+                <h5 class="card-title">Upload Documents</h5>
+                <p class="card-text">
+                    Upload PDFs, images, and text files to build your knowledge base.
+                    Supports OCR for scanned documents.
+                </p>
+                <a href="{{ url_for('upload_documents') }}" class="btn btn-primary">
+                    <i class="fas fa-upload me-1"></i> Upload Files
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-search fa-3x text-success mb-3"></i>
+                <h5 class="card-title">Query Documents</h5>
+                <p class="card-text">
+                    Ask questions about your documents and get precise answers with citations
+                    and theme identification.
+                </p>
+                {% if processed_documents > 0 %}
+                    <a href="{{ url_for('query_documents') }}" class="btn btn-success">
+                        <i class="fas fa-search me-1"></i> Ask Questions
+                    </a>
+                {% else %}
+                    <button class="btn btn-success" disabled>
+                        <i class="fas fa-search me-1"></i> No Documents Ready
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-3">
+        <div class="card h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-file-alt fa-3x text-info mb-3"></i>
+                <h5 class="card-title">Manage Documents</h5>
+                <p class="card-text">
+                    View, organize, and manage your uploaded documents.
+                    Monitor processing status and handle errors.
+                </p>
+                <a href="{{ url_for('documents') }}" class="btn btn-info">
+                    <i class="fas fa-file-alt me-1"></i> View Documents
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Overview -->
+<div class="row mt-5">
+    <div class="col-12">
+        <h3><i class="fas fa-star me-2"></i>Key Features</h3>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-brain text-primary me-2"></i>
+                    AI-Powered Analysis
+                </h6>
+                <p class="card-text text-muted">
+                    Uses OpenAI GPT-4o for intelligent answer extraction and theme identification
+                    across multiple documents.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-quote-right text-success me-2"></i>
+                    Precise Citations
+                </h6>
+                <p class="card-text text-muted">
+                    Every answer includes exact citations with document ID, page number,
+                    and paragraph references.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-eye text-info me-2"></i>
+                    OCR Support
+                </h6>
+                <p class="card-text text-muted">
+                    Automatically extracts text from scanned documents and images
+                    using advanced OCR technology.
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-project-diagram text-warning me-2"></i>
+                    Theme Identification
+                </h6>
+                <p class="card-text text-muted">
+                    Identifies common themes and patterns across documents,
+                    providing synthesized insights.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Update processing count periodically
+function updateSystemStats() {
+    fetch('/api/system-stats')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('processing-count').textContent = data.processing_documents;
+        })
+        .catch(error => console.error('Error updating stats:', error));
+}
+
+// Update stats every 10 seconds
+setInterval(updateSystemStats, 10000);
+updateSystemStats(); // Initial load
+</script>
+{% endblock %}

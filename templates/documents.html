@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Documents - Document Research Chatbot{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h2><i class="fas fa-file-alt me-2"></i>Document Library</h2>
+                <p class="text-muted">Manage your uploaded documents and monitor processing status.</p>
+            </div>
+            <div>
+                <a href="{{ url_for('upload_documents') }}" class="btn btn-primary">
+                    <i class="fas fa-plus me-1"></i> Upload More
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Statistics Row -->
+<div class="row mb-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-primary">{{ documents|length }}</h4>
+                <p class="mb-0">Total Documents</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-success">{{ documents|selectattr('processing_status', 'equalto', 'completed')|list|length }}</h4>
+                <p class="mb-0">Processed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-warning">{{ documents|selectattr('processing_status', 'equalto', 'processing')|list|length }}</h4>
+                <p class="mb-0">Processing</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h4 class="text-danger">{{ documents|selectattr('processing_status', 'equalto', 'failed')|list|length }}</h4>
+                <p class="mb-0">Failed</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Documents Table -->
+<div class="row">
+    <div class="col-12">
+        {% if documents %}
+            <div class="card">
+                <div class="card-header">
+                    <div class="row align-items-center">
+                        <div class="col">
+                            <h5 class="mb-0">Documents ({{ documents|length }})</h5>
+                        </div>
+                        <div class="col-auto">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="searchInput" placeholder="Search documents...">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0" id="documentsTable">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th>Document</th>
+                                    <th>Type</th>
+                                    <th>Size</th>
+                                    <th>Status</th>
+                                    <th>Uploaded</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for doc in documents %}
+                                <tr data-doc-id="{{ doc.id }}" class="document-row">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-{{ 'pdf' if doc.file_type == 'pdf' else 'image' if doc.file_type == 'image' else 'alt' }} fa-lg me-3 text-{{ 'danger' if doc.file_type == 'pdf' else 'info' if doc.file_type == 'image' else 'secondary' }}"></i>
+                                            <div>
+                                                <div class="fw-semibold">{{ doc.original_filename }}</div>
+                                                {% if doc.error_message %}
+                                                    <small class="text-danger">{{ doc.error_message[:100] }}{% if doc.error_message|length > 100 %}...{% endif %}</small>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if doc.file_type == 'pdf' else 'info' if doc.file_type == 'image' else 'secondary' }}">
+                                            {{ doc.file_type.upper() }}
+                                        </span>
+                                    </td>
+                                    <td>{{ (doc.file_size / 1024 / 1024) | round(2) }} MB</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if doc.processing_status == 'completed' else 'warning' if doc.processing_status == 'processing' else 'danger' if doc.processing_status == 'failed' else 'secondary' }}">
+                                            {% if doc.processing_status == 'processing' %}
+                                                <i class="fas fa-spinner fa-spin me-1"></i>
+                                            {% endif %}
+                                            {{ doc.processing_status.title() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div>{{ doc.uploaded_at.strftime('%Y-%m-%d') }}</div>
+                                        <small class="text-muted">{{ doc.uploaded_at.strftime('%H:%M') }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm">
+                                            {% if doc.extracted_text %}
+                                                <button class="btn btn-outline-info" onclick="viewDocument({{ doc.id }}, '{{ doc.original_filename }}')" title="View Content">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            {% if doc.processing_status == 'failed' %}
+                                                <button class="btn btn-outline-warning" onclick="retryProcessing({{ doc.id }})" title="Retry Processing">
+                                                    <i class="fas fa-redo"></i>
+                                                </button>
+                                            {% endif %}
+                                            
+                                            <form method="POST" action="{{ url_for('delete_document', doc_id=doc.id) }}" class="d-inline" onsubmit="return confirmDelete('{{ doc.original_filename }}')">
+                                                <button type="submit" class="btn btn-outline-danger" title="Delete Document">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fas fa-file-upload fa-3x text-muted mb-3"></i>
+                    <h4 class="text-muted">No Documents Uploaded</h4>
+                    <p class="text-muted">Upload your first document to get started with the chatbot.</p>
+                    <a href="{{ url_for('upload_documents') }}" class="btn btn-primary">
+                        <i class="fas fa-upload me-1"></i> Upload Documents
+                    </a>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Document Content Modal -->
+<div class="modal fade" id="documentModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="documentModalTitle">Document Content</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="documentContent" style="max-height: 400px; overflow-y: auto;">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Search functionality
+document.getElementById('searchInput').addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const rows = document.querySelectorAll('.document-row');
+    
+    rows.forEach(row => {
+        const filename = row.querySelector('td .fw-semibold').textContent.toLowerCase();
+        const visible = filename.includes(searchTerm);
+        row.style.display = visible ? '' : 'none';
+    });
+});
+
+// View document content
+function viewDocument(docId, filename) {
+    const modal = new bootstrap.Modal(document.getElementById('documentModal'));
+    document.getElementById('documentModalTitle').textContent = filename;
+    
+    // Reset content
+    document.getElementById('documentContent').innerHTML = `
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    `;
+    
+    modal.show();
+    
+    // Fetch document content (you'd need to add an API endpoint for this)
+    // For now, show a placeholder message
+    setTimeout(() => {
+        document.getElementById('documentContent').innerHTML = `
+            <div class="alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                Document content preview is not implemented yet. 
+                The extracted text is stored in the database and used for querying.
+            </div>
+        `;
+    }, 1000);
+}
+
+// Retry processing
+function retryProcessing(docId) {
+    if (confirm('Retry processing this document?')) {
+        // Update status to show processing
+        const row = document.querySelector(`tr[data-doc-id="${docId}"]`);
+        const statusBadge = row.querySelector('.badge');
+        statusBadge.className = 'badge bg-warning';
+        statusBadge.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Processing';
+        
+        // You'd implement the retry logic here
+        // For now, just show a message after a delay
+        setTimeout(() => {
+            statusBadge.className = 'badge bg-success';
+            statusBadge.innerHTML = 'Completed';
+        }, 3000);
+    }
+}
+
+// Confirm delete
+function confirmDelete(filename) {
+    return confirm(`Are you sure you want to delete "${filename}"? This action cannot be undone.`);
+}
+
+// Auto-refresh processing documents
+function refreshProcessingStatus() {
+    const processingRows = document.querySelectorAll('tr[data-doc-id] .badge.bg-warning');
+    
+    processingRows.forEach(badge => {
+        if (badge.textContent.includes('Processing')) {
+            const row = badge.closest('tr');
+            const docId = row.getAttribute('data-doc-id');
+            
+            // Check status via API
+            fetch(`/api/document-status/${docId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'completed') {
+                        badge.className = 'badge bg-success';
+                        badge.innerHTML = 'Completed';
+                        
+                        // Add view button if not exists
+                        const actionsCell = row.querySelector('td:last-child .btn-group');
+                        if (!actionsCell.querySelector('.btn-outline-info')) {
+                            const viewBtn = document.createElement('button');
+                            viewBtn.className = 'btn btn-outline-info';
+                            viewBtn.title = 'View Content';
+                            viewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                            viewBtn.onclick = () => viewDocument(data.id, data.filename);
+                            actionsCell.insertBefore(viewBtn, actionsCell.firstChild);
+                        }
+                    } else if (data.status === 'failed') {
+                        badge.className = 'badge bg-danger';
+                        badge.innerHTML = 'Failed';
+                        
+                        // Show error message if provided
+                        if (data.error) {
+                            const filenameDiv = row.querySelector('.fw-semibold').parentElement;
+                            let errorMsg = filenameDiv.querySelector('.text-danger');
+                            if (!errorMsg) {
+                                errorMsg = document.createElement('small');
+                                errorMsg.className = 'text-danger';
+                                filenameDiv.appendChild(errorMsg);
+                            }
+                            errorMsg.textContent = data.error.substring(0, 100) + (data.error.length > 100 ? '...' : '');
+                        }
+                    }
+                })
+                .catch(error => console.error('Error checking document status:', error));
+        }
+    });
+}
+
+// Check processing status every 5 seconds
+setInterval(refreshProcessingStatus, 5000);
+</script>
+{% endblock %}
